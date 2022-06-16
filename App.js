@@ -6,118 +6,139 @@
  * @flow strict-local
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import type {Node} from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
   View,
-  Button,
+  Text,
+  StyleSheet
 } from 'react-native';
 
-import CalendarModule from './src/modules/CalendarModule';
+import MapView, { Callout, Circle, Marker, Polygon } from 'react-native-maps';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+const styles = StyleSheet.create({
+  container: {
+    flex: 3,
+  },
+  flex1: {
+    flex: 1,
+  },
+  flex2: {
+    flex: 2,
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+});
 
-const Section = ({children, title}): Node => {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
+const initialRegion = {
+  latitude: -27.2952363,
+  longitude: -56.1774497,
+  latitudeDelta: 1,
+  longitudeDelta: 1,
 };
 
+const initialMarkers = [
+  { key: 'mark1', title: 'Marcador 1', description: 'Desc 1', coordinate: { latitude: -27.2952363, longitude: -56.1774497 }},
+];
+
 const App: () => Node = () => {
-  const isDarkMode = useColorScheme() === 'dark';
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
+  const [region, setRegion] = useState(initialRegion);
+  const [markers, setMarkers] = useState(initialMarkers);
+  const [circle, setCircle] = useState(undefined);
+  const [polygon, setPolygon] = useState(undefined);
 
-  const handleClick = () => {
-    // Llamar a la funcion nativa
-    CalendarModule.createCalendarEvent('Evento nuevo', 'Facultad de Ingenieria');
+  const handleRegionChange = (region) => {
+    setRegion(region);
+  }
+
+  const handleMarkerDragEnd = (e, marker) => {
+    const newMarkers = markers.map(m => m.key === marker.key ? {...m, coordinate: e.nativeEvent.coordinate} : m);
+    setMarkers(newMarkers);
+  }
+
+  const handleAddMarker = (e) => {
+    const {coordinate} = e.nativeEvent;
+    const key = Number.parseInt(Math.random() * 9999999999);
+    const newMarker = {key, title: key, description: key, coordinate};
+    const newMarkers = [...markers, newMarker];
+    setMarkers(newMarkers);
+    setPolygon(undefined);
+  }
+
+  const handleMarkerClick = (e, marker) => {
+    setRegion({
+      latitude: marker.coordinate.latitude,
+      longitude: marker.coordinate.longitude,
+      longitudeDelta: 0.5,
+      latitudeDelta: 0.5,
+    });
+    setCircle({
+      center: marker.coordinate,
+    });
+  }
+
+  const handleMapPress = (e) => {
+    const center = e.nativeEvent.coordinate;
+    setCircle(undefined);
+    setPolygon([
+      {latitude: center.latitude + 0.2, longitude: center.longitude + 0.2},
+      {latitude: center.latitude - 0.2, longitude: center.longitude + 0.2},
+      {latitude: center.latitude - 0.2, longitude: center.longitude - 0.2},
+      {latitude: center.latitude + 0.2, longitude: center.longitude - 0.2},
+    ]);
   }
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Bienvenidos a React Native! Edit <Text style={styles.highlight}>App.js</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="Call native methods">
-            <Button title="Create Calendar Event" onPress={handleClick} />
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <View style={styles.flex1}>
+      <View style={styles.flex1}>
+      <Text>Hola Mundo</Text>
+      <Text>Region: {JSON.stringify(region)}</Text>
+      <Text>Marcadores:</Text>
+      <View>
+        {markers.map(m => <Text key={m.key}>* {JSON.stringify(m)}</Text>)}
+      </View>
+      </View>
+      <View
+        style={styles.container}>
+        <MapView
+          style={styles.map}
+          initialRegion={region}
+          onRegionChange={handleRegionChange}
+          onDoublePress={handleAddMarker}
+          onPress={handleMapPress}
+        >
+          {circle && (
+            <Circle
+              center={circle.center}
+              radius={1000}
+              fillColor='rgba(255,0,0,0.5)'
+            />
+          )}
+          {polygon && (
+            <Polygon
+              coordinates={polygon}
+              fillColor='rgba(0,255,0,0.5)'
+            />
+          )}
+          {markers.map(marker => (
+            <Marker
+              draggable
+              key={marker.key}
+              coordinate={marker.coordinate}
+              onDragEnd={(e) => handleMarkerDragEnd(e, marker)}
+              onPress={(e) => handleMarkerClick(e, marker)}
+            >
+              <Callout>
+                <Text>{marker.title}</Text>
+              </Callout>
+            </Marker>
+          ))}
+        </MapView>
+      </View>
+    </View>
   );
 };
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
 
 export default App;
